@@ -1,0 +1,375 @@
+/* ===== MAIN CALCULATION ===== */
+function calculate(){
+  var P0=parseFloat(document.getElementById('startAmt').value);
+  var startStr=document.getElementById('startDate').value;
+  var endStr=document.getElementById('endDate').value;
+  var tpd=parseInt(document.getElementById('tradesPerDay').value,10);
+  var pr=parseFloat(document.getElementById('profitRate').value);
+  var div=parseFloat(document.getElementById('divLevel').value)||0;
+
+  var otcA=parseFloat(document.getElementById('otcAmt').value)||0;
+  var otcD=document.getElementById('otcDate').value;
+  var rcA=parseFloat(document.getElementById('rcAmt').value)||0;
+  var rcI=parseInt(document.getElementById('rcInterval').value,10)||0;
+  var otwA=parseFloat(document.getElementById('otwAmt').value)||0;
+  var otwD=document.getElementById('otwDate').value;
+  var rwA=parseFloat(document.getElementById('rwAmt').value)||0;
+  var rwI=parseInt(document.getElementById('rwInterval').value,10)||0;
+
+  if(isNaN(P0)||!startStr||!endStr||isNaN(tpd)||tpd<=0){
+    document.getElementById('result').innerHTML='<span class="error">Please fill in all required fields.</span>';
+    return;
+  }
+  var start=new Date(startStr), end=new Date(endStr);
+  if(end<start){
+    document.getElementById('result').innerHTML='<span class="error">Ending date must be after beginning date.</span>';
+    return;
+  }
+
+  var ppt=0.01*(pr/100);
+  var tm=1+ppt;
+  var dm=Math.pow(tm,tpd);
+
+  var bal=P0, base=P0;
+  var cDiv=0,cCont=0,cWith=0,day=0;
+  var oneDay=86400000;
+
+  gLabels=[];gBal=[];gBase=[];gDiv=[];gCont=[];gWith=[];
+
+  for(var d=new Date(start);d<=end;d=new Date(d.getTime()+oneDay)){
+    var ds=d.toISOString().split('T')[0];
+    var dom=d.getDate();
+
+    if(dom===9||dom===19||dom===29){bal+=div;cDiv+=div;}
+    if(otcA>0&&otcD&&ds===otcD){bal+=otcA;cCont+=otcA;}
+    if(rcA>0&&rcI>0&&day>0&&day%rcI===0){bal+=rcA;cCont+=rcA;}
+    if(otwA>0&&otwD&&ds===otwD){bal-=otwA;cWith+=otwA;}
+    if(rwA>0&&rwI>0&&day>0&&day%rwI===0){bal-=rwA;cWith+=rwA;}
+
+    bal*=dm;
+    base*=dm;
+
+    if(day%30===0 || d.getTime()===end.getTime()){
+      var lbl=ds.substring(0,7);
+      gLabels.push(lbl);
+      gBal.push(bal);
+      gBase.push(base);
+      gDiv.push(cDiv);
+      gCont.push(cCont);
+      gWith.push(cWith);
+    }
+    day++;
+  }
+
+  var fmt=bal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('result').innerHTML='<strong class="flash">$'+fmt+'</strong>';
+  buildCharts(P0,bal,base,cDiv,cCont,cWith);
+}
+
+/* ===== CHART BUILDING ===== */
+function buildCharts(P0,final,base,cDiv,cCont,cWith){
+  chartInstances.forEach(function(c){c.destroy();});
+  chartInstances=[];
+
+  // 1. Line
+  var ctx1=document.getElementById('chartLine').getContext('2d');
+  chartInstances.push(new Chart(ctx1,{
+    type:'line',
+    data:{
+      labels:gLabels,
+      datasets:[
+        {label:'Total Balance',data:gBal,borderColor:'#0d47a1',fill:false,tension:0.3},
+        {label:'Base Growth',data:gBase,borderColor:'#999',borderDash:[5,5],fill:false,tension:0.3}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:12}}}}}
+  }));
+
+  // 2. Stacked Area
+  var ctx2=document.getElementById('chartStacked').getContext('2d');
+  chartInstances.push(new Chart(ctx2,{
+    type:'line',
+    data:{
+      labels:gLabels,
+      datasets:[
+        {label:'Initial',data:gLabels.map(()=>P0),backgroundColor:'#0d47a1',stack:'Stack0'},
+        {label:'Profits',data:gLabels.map((_,i)=>gBase[i]-P0),backgroundColor:'#1976d2',stack:'Stack0'},
+        {label:'Net Contrib',data:gLabels.map((_,i)=>(gCont[i]-gWith[i])),backgroundColor:'#2e7d32',stack:'Stack0'},
+        {label:'Dividends',data:gDiv,backgroundColor:'#f9a825',stack:'Stack0'}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:12}}}},scales:{y:{stacked:true},x:{stacked:true}}}
+  }));
+
+  // 3. Bar
+  var ctx3=document.getElementById('chartBar').getContext('2d');
+  chartInstances.push(new Chart(ctx3,{
+    type:'bar',
+    data:{
+      labels:['Inflows','Outflows','Profit'],
+      datasets:[{data:[cCont+cDiv,cWith,final-P0-(cCont+cDiv)+cWith],backgroundColor:['#2e7d32','#d32f2f','#1976d2']}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  }));
+
+  // 4. Pie
+  var ctx4=document.getElementById('chartPie').getContext('2d');
+  chartInstances.push(new Chart(ctx4,{
+    type:'pie',
+    data:{
+      labels:['Initial','Profit','Net Contrib','Dividends'],
+      datasets:[{data:[P0, final-P0-(cCont+cDiv)+cWith, cCont-cWith, cDiv],backgroundColor:['#0d47a1','#1976d2','#2e7d32','#f9a825']}]
+    },
+    options:{responsive:true,maintainAspectRatio:false}
+  }));
+
+  // 5. Waterfall
+  var ctx5=document.getElementById('chartWaterfall').getContext('2d');
+  var wfData=[P0, cCont, cDiv, -(cWith), final-(P0+cCont+cDiv-cWith)];
+  var wfLabels=['Start','Contrib','Div','With','Profit'];
+  chartInstances.push(new Chart(ctx5,{
+    type:'bar',
+    data:{labels:wfLabels,datasets:[{data:wfData,backgroundColor:['#0d47a1','#2e7d32','#f9a825','#d32f2f','#1976d2']}]}
+  }));
+}
+
+/* ===== EXPORT FUNCTIONS ===== */
+function printResults(){window.print();}
+function savePDF(){
+  var element=document.body;
+  html2canvas(element).then(function(canvas){
+    var imgData=canvas.toDataURL('image/png');
+    var pdf=new jspdf.jsPDF('p','mm','a4');
+    var imgProps=pdf.getImageProperties(imgData);
+    var pdfWidth=pdf.internal.pageSize.getWidth();
+    var pdfHeight=(imgProps.height*pdfWidth)/imgProps.width;
+    pdf.addImage(imgData,'PNG',0,0,pdfWidth,pdfHeight);
+    pdf.save('Teamwork4Freedom_Results.pdf');
+  });
+}
+function saveJPG(){
+  var element=document.body;
+  html2canvas(element).then(function(canvas){
+    var link=document.createElement('a');
+    link.download='Teamwork4Freedom_Results.jpg';
+    link.href=canvas.toDataURL('image/jpeg');
+    link.click();
+  });
+}
+</script>
+</body>
+</html>
+<script>
+/* ===== POPULATE DROPDOWNS ===== */
+// Profit Rate: 60.0% to 65.0% in 0.1% steps, default 62.0%
+(function(){
+  var sel = document.getElementById('profitRate');
+  for(var i=600; i<=650; i+=1){
+    var val = (i/10).toFixed(1);
+    var opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = val + '%';
+    if(i === 620) opt.selected = true;
+    sel.appendChild(opt);
+  }
+})();
+
+// Dividend Levels: Monthly totals divided by 3
+(function(){
+  var levels = [
+    {l:'Level 1', m:30}, {l:'Level 2', m:150}, {l:'Level 3', m:500},
+    {l:'Level 4', m:1200}, {l:'Level 5', m:2400}, {l:'Level 6', m:5000},
+    {l:'Level 7', m:10000}, {l:'Level 8', m:60000}, {l:'Level 9', m:100000},
+    {l:'Level 10', m:300000}, {l:'Level 11', m:600000}, {l:'Level 12', m:1000000}
+  ];
+  var sel = document.getElementById('divLevel');
+  levels.forEach(function(d){
+    var opt = document.createElement('option');
+    opt.value = d.m / 3; // Store the per-payment amount
+    opt.textContent = d.l + ' — $' + d.m.toLocaleString() + '/mo';
+    sel.appendChild(opt);
+  });
+})();
+
+/* ===== UI HELPERS ===== */
+function switchTab(name){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('page-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function toggleSection(id){
+  var sec = document.getElementById('sec-'+id);
+  var btn = sec.previousElementSibling;
+  sec.classList.toggle('open');
+  btn.classList.toggle('open');
+  if(id==='export'){
+    document.getElementById('exportOpts').classList.toggle('open', sec.classList.contains('open'));
+  }
+}
+
+/* ===== GRAPH DATA STORAGE ===== */
+var gLabels=[],gBal=[],gBase=[],gDiv=[],gCont=[],gWith=[];
+var chartInstances=[];
+/* ===== MAIN CALCULATION ===== */
+function calculate(){
+  var P0=parseFloat(document.getElementById('startAmt').value);
+  var startStr=document.getElementById('startDate').value;
+  var endStr=document.getElementById('endDate').value;
+  var tpd=parseInt(document.getElementById('tradesPerDay').value,10);
+  var pr=parseFloat(document.getElementById('profitRate').value);
+  var div=parseFloat(document.getElementById('divLevel').value)||0;
+
+  var otcA=parseFloat(document.getElementById('otcAmt').value)||0;
+  var otcD=document.getElementById('otcDate').value;
+  var rcA=parseFloat(document.getElementById('rcAmt').value)||0;
+  var rcI=parseInt(document.getElementById('rcInterval').value,10)||0;
+  var otwA=parseFloat(document.getElementById('otwAmt').value)||0;
+  var otwD=document.getElementById('otwDate').value;
+  var rwA=parseFloat(document.getElementById('rwAmt').value)||0;
+  var rwI=parseInt(document.getElementById('rwInterval').value,10)||0;
+
+  if(isNaN(P0)||!startStr||!endStr||isNaN(tpd)||tpd<=0){
+    document.getElementById('result').innerHTML='<span class="error">Please fill in all required fields.</span>';
+    return;
+  }
+  var start=new Date(startStr), end=new Date(endStr);
+  if(end<start){
+    document.getElementById('result').innerHTML='<span class="error">Ending date must be after beginning date.</span>';
+    return;
+  }
+
+  var ppt=0.01*(pr/100);
+  var tm=1+ppt;
+  var dm=Math.pow(tm,tpd);
+
+  var bal=P0, base=P0;
+  var cDiv=0,cCont=0,cWith=0,day=0;
+  var oneDay=86400000;
+
+  gLabels=[];gBal=[];gBase=[];gDiv=[];gCont=[];gWith=[];
+
+  for(var d=new Date(start);d<=end;d=new Date(d.getTime()+oneDay)){
+    var ds=d.toISOString().split('T')[0];
+    var dom=d.getDate();
+
+    if(dom===9||dom===19||dom===29){bal+=div;cDiv+=div;}
+    if(otcA>0&&otcD&&ds===otcD){bal+=otcA;cCont+=otcA;}
+    if(rcA>0&&rcI>0&&day>0&&day%rcI===0){bal+=rcA;cCont+=rcA;}
+    if(otwA>0&&otwD&&ds===otwD){bal-=otwA;cWith+=otwA;}
+    if(rwA>0&&rwI>0&&day>0&&day%rwI===0){bal-=rwA;cWith+=rwA;}
+
+    bal*=dm;
+    base*=dm;
+
+    if(day%30===0 || d.getTime()===end.getTime()){
+      var lbl=ds.substring(0,7);
+      gLabels.push(lbl);
+      gBal.push(bal);
+      gBase.push(base);
+      gDiv.push(cDiv);
+      gCont.push(cCont);
+      gWith.push(cWith);
+    }
+    day++;
+  }
+
+  var fmt=bal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('result').innerHTML='<strong class="flash">$'+fmt+'</strong>';
+  buildCharts(P0,bal,base,cDiv,cCont,cWith);
+}
+
+/* ===== CHART BUILDING ===== */
+function buildCharts(P0,final,base,cDiv,cCont,cWith){
+  chartInstances.forEach(function(c){c.destroy();});
+  chartInstances=[];
+
+  // 1. Line
+  var ctx1=document.getElementById('chartLine').getContext('2d');
+  chartInstances.push(new Chart(ctx1,{
+    type:'line',
+    data:{
+      labels:gLabels,
+      datasets:[
+        {label:'Total Balance',data:gBal,borderColor:'#0d47a1',fill:false,tension:0.3},
+        {label:'Base Growth',data:gBase,borderColor:'#999',borderDash:[5,5],fill:false,tension:0.3}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:12}}}}}
+  }));
+
+  // 2. Stacked Area
+  var ctx2=document.getElementById('chartStacked').getContext('2d');
+  chartInstances.push(new Chart(ctx2,{
+    type:'line',
+    data:{
+      labels:gLabels,
+      datasets:[
+        {label:'Initial',data:gLabels.map(()=>P0),backgroundColor:'#0d47a1',stack:'Stack0'},
+        {label:'Profits',data:gLabels.map((_,i)=>gBase[i]-P0),backgroundColor:'#1976d2',stack:'Stack0'},
+        {label:'Net Contrib',data:gLabels.map((_,i)=>(gCont[i]-gWith[i])),backgroundColor:'#2e7d32',stack:'Stack0'},
+        {label:'Dividends',data:gDiv,backgroundColor:'#f9a825',stack:'Stack0'}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:12}}}},scales:{y:{stacked:true},x:{stacked:true}}}
+  }));
+
+  // 3. Bar
+  var ctx3=document.getElementById('chartBar').getContext('2d');
+  chartInstances.push(new Chart(ctx3,{
+    type:'bar',
+    data:{
+      labels:['Inflows','Outflows','Profit'],
+      datasets:[{data:[cCont+cDiv,cWith,final-P0-(cCont+cDiv)+cWith],backgroundColor:['#2e7d32','#d32f2f','#1976d2']}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  }));
+
+  // 4. Pie
+  var ctx4=document.getElementById('chartPie').getContext('2d');
+  chartInstances.push(new Chart(ctx4,{
+    type:'pie',
+    data:{
+      labels:['Initial','Profit','Net Contrib','Dividends'],
+      datasets:[{data:[P0, final-P0-(cCont+cDiv)+cWith, cCont-cWith, cDiv],backgroundColor:['#0d47a1','#1976d2','#2e7d32','#f9a825']}]
+    },
+    options:{responsive:true,maintainAspectRatio:false}
+  }));
+
+  // 5. Waterfall
+  var ctx5=document.getElementById('chartWaterfall').getContext('2d');
+  var wfData=[P0, cCont, cDiv, -(cWith), final-(P0+cCont+cDiv-cWith)];
+  var wfLabels=['Start','Contrib','Div','With','Profit'];
+  chartInstances.push(new Chart(ctx5,{
+    type:'bar',
+    data:{labels:wfLabels,datasets:[{data:wfData,backgroundColor:['#0d47a1','#2e7d32','#f9a825','#d32f2f','#1976d2']}]}
+  }));
+}
+
+/* ===== EXPORT FUNCTIONS ===== */
+function printResults(){window.print();}
+function savePDF(){
+  var element=document.body;
+  html2canvas(element).then(function(canvas){
+    var imgData=canvas.toDataURL('image/png');
+    var pdf=new jspdf.jsPDF('p','mm','a4');
+    var imgProps=pdf.getImageProperties(imgData);
+    var pdfWidth=pdf.internal.pageSize.getWidth();
+    var pdfHeight=(imgProps.height*pdfWidth)/imgProps.width;
+    pdf.addImage(imgData,'PNG',0,0,pdfWidth,pdfHeight);
+    pdf.save('Teamwork4Freedom_Results.pdf');
+  });
+}
+function saveJPG(){
+  var element=document.body;
+  html2canvas(element).then(function(canvas){
+    var link=document.createElement('a');
+    link.download='Teamwork4Freedom_Results.jpg';
+    link.href=canvas.toDataURL('image/jpeg');
+    link.click();
+  });
+}
+</script>
+</body>
+</html>
