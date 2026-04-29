@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teamwork4Freedom Wealth Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:16px;line-height:1.6;background:#f4f6f9;color:#333;padding:1rem;max-width:800px;margin:0 auto}
+h1{text-align:center;color:#0d47a1;font-size:2rem;margin-bottom:.5rem}
+.sub{text-align:center;color:#666;font-size:1rem;margin-bottom:1.5rem}
+label{display:block;margin-top:1rem;font-weight:bold;color:#2c3e50}
+input,select{width:100%;padding:.8rem;font-size:1rem;margin-top:.3rem;border:2px solid #0d47a1;border-radius:8px;background:#fff}
+.hb{width:100%;padding:1rem;font-size:1.1rem;font-weight:bold;cursor:pointer;border:none;border-radius:10px;margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;color:#fff}
+.hc{background:linear-gradient(135deg,#1565c0,#42a5f5)}
+.hd{background:linear-gradient(135deg,#f9a825,#ffca28);color:#333}
+.he{background:linear-gradient(135deg,#2e7d32,#66bb6a)}
+.cs{max-height:0;overflow:hidden;transition:max-height .4s;background:#fff;border-radius:8px;padding:0 1rem;margin-top:0;border:1px solid #ddd}
+.cs.op{max-height:3000px;padding:1rem;margin-top:1rem}
+.rb{margin-top:2rem;padding:2rem;background:#fff;border:3px solid #0d47a1;border-radius:12px;text-align:center}
+.mg{font-size:2.5rem;font-weight:900;color:#2e7d32}
+.sub-total{font-size:1.1rem;color:#555;margin-top:0.5rem;font-weight:bold}
+.eo{display:none;gap:1rem;margin-top:1rem}
+.eo.op{display:flex}
+.eb{flex:1;padding:.8rem;font-size:1rem;border:none;border-radius:6px;cursor:pointer;font-weight:bold;color:#fff}
+.bp{background:#555}
+.dn{font-size:.85rem;color:#666;margin-top:.5rem}
+.div-row{background:#f9f9f9;padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid #ddd}
+.div-row:last-child{margin-bottom:0}
+.btn-add{background:#2e7d32;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;margin-top:5px}
+.btn-remove{background:#d32f2f;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px}
+</style>
+</head>
+<body>
+<h1>Teamwork4Freedom Wealth Calculator</h1>
+<div class="sub">Real-Time Exponential Growth & Cash Flow Projection</div>
+
+<label>1️⃣ Starting Amount (USD)</label>
+<input type="number" id="sa" value="1000" oninput="calc()">
+
+<label>2️⃣ Start Date</label>
+<input type="date" id="sd" oninput="calc()">
+
+<label>3️⃣ End Date</label>
+<input type="date" id="ed" oninput="calc()">
+
+<label>4️⃣ Trades Per Day</label>
+<input type="number" id="tpd" value="2" min="1" oninput="calc()">
+
+<label>5️⃣ Profit Rate Per Trade (%)</label>
+<select id="pr" onchange="calc()">
+<!-- Options populated by JS -->
+</select>
+
+<!-- Hero Button: External Cash Flow -->
+<button class="hb hc" onclick="tg('cfs',this)"><span>💵 External Cash Flow</span><span>▼</span></button>
+<div id="cfs" class="cs">
+    <h3>One-Time Transactions</h3>
+    <label>One-Time Contribution (Amount)</label>
+    <input type="number" id="otca" placeholder="0" oninput="calc()">
+    <label>One-Time Contribution (Date)</label>
+    <input type="date" id="otcd" oninput="calc()">
+
+    <label>One-Time Withdrawal (Amount)</label>
+    <input type="number" id="otwa" placeholder="0" oninput="calc()">
+    <label>One-Time Withdrawal (Date)</label>
+    <input type="date" id="otwd" oninput="calc()">
+
+    <h3 style="margin-top:1rem;color:#1565c0">Recurring Transactions</h3>
+    
+    <div style="background:#e3f2fd;padding:10px;border-radius:6px;margin-bottom:10px">
+        <label>Recurring Contribution Amount</label>
+        <input type="number" id="rca" placeholder="0" oninput="calc()">
+        <label>Recurring Contribution Start Date</label>
+        <input type="date" id="rcs" oninput="calc()">
+        <label>Recurring Interval (Days)</label>
+        <input type="number" id="rci" placeholder="30" min="1" oninput="calc()">
+    </div>
+
+    <div style="background:#ffebee;padding:10px;border-radius:6px;margin-bottom:10px">
+        <label>Recurring Withdrawal Amount</label>
+        <input type="number" id="rwa" placeholder="0" oninput="calc()">
+        <label>Recurring Withdrawal Start Date</label>
+        <input type="date" id="rws" oninput="calc()">
+        <label>Recurring Interval (Days)</label>
+        <input type="number" id="rwi" placeholder="30" min="1" oninput="calc()">
+    </div>
+</div>
+
+<!-- Hero Button: Dividend Levels (Dynamic) -->
+<button class="hb hd" onclick="tg('ds',this)"><span>📈 Dividend Timeline</span><span>▼</span></button>
+<div id="ds" class="cs">
+    <p class="dn">Add dividend periods. When a new period starts, the previous one ends automatically.</p>
+    <div id="dividend-list"></div>
+    <button class="btn-add" onclick="addDivRow()">+ Add Dividend Period</button>
+    <div class="sub-total" id="div-total-display" style="margin-top:10px;color:#f9a825">Total Dividends Paid: $0.00</div>
+</div>
+
+<!-- Result Section -->
+<div class="rb">
+    <div>Total Projected Value:</div>
+    <div id="rd" class="mg">$0.00</div>
+    
+    <div style="margin-top:1rem;text-align:left;display:inline-block;width:100%">
+        <div class="sub-total" id="tot-contrib">Total Contributions: $0.00</div>
+        <div class="sub-total" id="tot-withdraw">Total Withdrawals: $0.00</div>
+        <div class="sub-total" id="tot-profit">Total Trade Profit: $0.00</div>
+    </div>
+</div>
+
+<!-- Export -->
+<button class="hb he" onclick="tg('es',this)"><span>📤 Export Results</span><span>▼</span></button>
+<div id="es" class="eo">
+    <button class="eb bp" onclick="window.print()">🖨️ Print / Save PDF</button>
+</div>
+
+<script>
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded',function(){
+    var t=new Date().toISOString().split('T')[0];
+    var n=new Date();n.setFullYear(n.getFullYear()+1);
+    document.getElementById('sd').value=t;
+    document.getElementById('ed').value=n.toISOString().split('T')[0];
+    
+    // Populate Profit Rate
+    var rs=document.getElementById('pr');
+    for(var r=60.0;r<=65.05;r+=0.1){
+        var o=document.createElement('option');
+        o.value=r.toFixed(1);o.textContent=r.toFixed(1)+''%';
+        if(Math.abs(r-62.0)<0.05)o.selected=true;
+        rs.appendChild(o);
+    }
+    
+    // Add initial dividend row
+    addDivRow();
+    
+    // Initial Calc
+    calc();
+});
+
+// --- UI Functions ---
+function tg(id,btn){
+    var s=document.getElementById(id);var io=s.classList.contains('op');
+    document.querySelectorAll('.cs').forEach(function(x){x.classList.remove('op');});
+    document.querySelectorAll('.hb').forEach(function(b){b.classList.remove('op');});
+    if(!io){s.classList.add('op');btn.classList.add('op');}
+}
+
+// --- Dividend Logic ---
+function addDivRow(){
+    var container = document.getElementById('dividend-list');
+    var div = document.createElement('div');
+    div.className = 'div-row';
+    div.innerHTML = `
+        <label>Dividend Level (Start Date)</label>
+        <select class="dl-select" onchange="calc()">
+            <option value="0">None</option>
+            <option value="1">Level 1 ($30/inst)</option>
+            <option value="2">Level 2 ($150/inst)</option>
+            <option value="3">Level 3 ($500/inst)</option>
+            <option value="4">Level 4 ($1,200/inst)</option>
+            <option value="5">Level 5 ($2,400/inst)</option>
+            <option value="6">Level 6 ($5,000/inst)</option>
+            <option value="7">Level 7 ($10,000/inst)</option>
+            <option value="8">Level 8 ($20,000/inst)</option>
+            <option value="9">Level 9 ($33,333/inst)</option>
+            <option value="10">Level 10 ($100,000/inst)</option>
+            <option value="11">Level 11 ($200,000/inst)</option>
+            <option value="12">Level 12 ($333,333/inst)</option>
+        </select>
+        <input type="date" class="dl-date" style="margin-top:5px" onchange="calc()">
+        <button class="btn-remove" onclick="removeDivRow(this)">Remove</button>
+    `;
+    container.appendChild(div);
+}
+
+function removeDivRow(btn){
+    btn.parentElement.remove();
+    calc();
+}
+
+function getInstAmount(lv){
+    var mt={0:0,1:90,2:450,3:1500,4:3600,5:7200,6:15000,7:30000,8:60000,9:100000,10:300000,11:600000,12:1000000};
+    return (mt[lv]||0)/3;
+}
+
+// --- Core Calculation ---
+function calc(){
+    var P0 = parseFloat(document.getElementById('sa').value) || 0;
+    var ss = document.getElementById('sd').value;
+    var es = document.getElementById('ed').value;
+    var tpd = parseInt(document.getElementById('tpd').value) || 1;
+    var pr = parseFloat(document.getElementById('pr').value) || 62.0;
+
+    if(!ss || !es){
+        document.getElementById('rd').textContent = '';
+        document.getElementById('tot-contrib').textContent = 'Total Contributions: $0.00';
+        document.getElementById('tot-withdraw').textContent = 'Total Withdrawals: $0.00';
+        document.getElementById('tot-profit').textContent = 'Total Trade Profit: $0.00';
+        document.getElementById('div-total-display').textContent = 'Total Dividends Paid: $0.00';
+        return;
+    }
+
+    var st = new Date(ss);
+    var en = new Date(es);
+    if(en < st){
+        document.getElementById('rd').textContent = '';
+        return;
+    }
+
+    // Gather Inputs
+    var otca = parseFloat(document.getElementById('otca').value) || 0;
+    var otcd = document.getElementById('otcd').value;
+    var otwa = parseFloat(document.getElementById('otwa').value) || 0;
+    var otwd = document.getElementById('otwd').value;
+
+    var rca = parseFloat(document.getElementById('rca').value) || 0;
+    var rcs = document.getElementById('rcs').value;
+    var rci = parseInt(document.getElementById('rci').value) || 0;
+
+    var rwa = parseFloat(document.getElementById('rwa').value) || 0;
+    var rws = document.getElementById('rws').value;
+    var rwi = parseInt(document.getElementById('rwi').value) || 0;
+
+    // Gather Dividend Rows
+    var divRows = document.querySelectorAll('.div-row');
+    var divEvents = []; // {start: Date, end: Date, level: int}
+    
+    // Sort rows by date
+    var sortedRows = Array.from(divRows).map(row => {
+        var lvl = parseInt(row.querySelector('.dl-select').value);
+        var dt = row.querySelector('.dl-date').value;
+        return {lvl: lvl, dt: dt ? new Date(dt) : null};
+    }).filter(item => item.dt !== null).sort((a,b) => a.dt - b.dt);
+
+    // Build intervals
+    for(var i=0; i<sortedRows.length; i++){
+        var start = sortedRows[i].dt;
+        var end = (i < sortedRows.length - 1) ? sortedRows[i+1].dt : en;
+        if(start < en){
+            divEvents.push({start: start, end: end, level: sortedRows[i].lvl});
+        }
+    }
+
+    // Constants
+    var ppt = 0.01 * (pr / 100);
+    var tm = 1 + ppt;
+    var dm = Math.pow(tm, tpd);
+    var od = 24 * 60 * 60 * 1000;
+
+    // Simulation
+    var bal = P0;
+    var tc = 0;
+    var tw = 0;
+    var td = 0;
+    var tp = 0;
+    var ds = 0;
+
+    for(var d = new Date(st); d <= en; d = new Date(d.getTime() + od)){
+        var dom = d.getDate();
+        var iso = d.toISOString().split('T')[0];
+
+        // 1. Dividends (Check active interval)
+        var activeDiv = 0;
+        for(var k=0; k<divEvents.length; k++){
+            if(d >= divEvents[k].start && d < divEvents[k].end){
+                if(dom === 9 || dom === 19 || dom === 29){
+                    activeDiv = getInstAmount(divEvents[k].level);
+                    break;
+                }
+            }
+        }
+        if(activeDiv > 0){
+            bal += activeDiv;
+            td += activeDiv;
+        }
+
+        // 2. One-Time
+        if(otcd && iso === otcd){ bal += otca; tc += otca; }
+        if(otwd && iso === otwd){ bal -= otwa; tw += otwa; }
+
+        // 3. Recurring Contributions
+        if(rcs && iso >= rcs && rci > 0 && ds > 0 && (d - new Date(rcs)) % (rci * od) === 0){
+             // Note: Simple modulo check for days. 
+             // Better logic: check if daysSinceStart >= daysSinceStartOfRecurrence
+             var daysSinceRecStart = Math.floor((d - new Date(rcs)) / od);
+             if(daysSinceRecStart > 0 && daysSinceRecStart % rci === 0){
+                 bal += rca; tc += rca;
+             }
+        }
+
+        // 4. Recurring Withdrawals
+        if(rws && iso >= rws && rwi > 0){
+             var daysSinceRecStart = Math.floor((d - new Date(rws)) / od);
+             if(daysSinceRecStart > 0 && daysSinceRecStart % rwi === 0){
+                 bal -= rwa; tw += rwa;
+             }
+        }
+
+        // 5. Growth
+        var pb = bal;
+        bal *= dm;
+        tp += (bal - pb);
+        ds++;
+    }
+
+    // Display Results
+    var fm = bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('rd').textContent = '$' + fm;
+    
+    document.getElementById('tot-contrib').textContent = 'Total Contributions: $' + tc.toLocaleString(undefined, {minimumFractionDigits:2});
+    document.getElementById('tot-withdraw').textContent = 'Total Withdrawals: $' + tw.toLocaleString(undefined, {minimumFractionDigits:2});
+    document.getElementById('tot-profit').textContent = 'Total Trade Profit: $' + tp.toLocaleString(undefined, {minimumFractionDigits:2});
+    document.getElementById('div-total-display').textContent = 'Total Dividends Paid: $' + td.toLocaleString(undefined, {minimumFractionDigits:2});
+}
+</script>
+</body>
+</html>
